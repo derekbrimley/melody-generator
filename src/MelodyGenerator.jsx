@@ -6,18 +6,14 @@ function MelodyGenerator() {
   const [key, setKey] = useState('C');
   const [scale, setScale] = useState('major');
   const [length, setLength] = useState(8);
-  const [tempo, setTempo] = useState(120); // Default tempo in BPM
   const [coherence, setCoherence] = useState(0.7); // Default coherence value
-  const [timeSignature, setTimeSignature] = useState('4/4'); // Add time signature state
   const [genre, setGenre] = useState('none'); // Add genre state with default "none"
   
   // Store the settings that were used for the generated melody
   const [generatedKey, setGeneratedKey] = useState('');
   const [generatedScale, setGeneratedScale] = useState('');
   const [generatedLength, setGeneratedLength] = useState(0);
-  const [generatedTempo, setGeneratedTempo] = useState(0);
   const [generatedCoherence, setGeneratedCoherence] = useState(0);
-  const [generatedTimeSignature, setGeneratedTimeSignature] = useState(''); // Add generated time signature state
   const [generatedGenre, setGeneratedGenre] = useState(''); // Add generated genre state
   
   const [isPlaying, setIsPlaying] = useState(false);
@@ -187,16 +183,14 @@ function MelodyGenerator() {
       setGeneratedKey(key);
       setGeneratedScale(scale);
       setGeneratedLength(length);
-      setGeneratedTempo(tempo);
       setGeneratedCoherence(coherence);
-      setGeneratedTimeSignature(timeSignature);
       setGeneratedGenre(genre); // Store the genre used for generation
       
       // Get both the MIDI data and the download URL
       const response = await axios.post(
         'http://localhost:8000/generate-melody/',
         null,
-        { params: { key, scale, length, coherence, tempo, time_signature: timeSignature, genre } }
+        { params: { key, scale, length, coherence, genre } }
       );
       
       setMelody(response.data);
@@ -251,11 +245,12 @@ function MelodyGenerator() {
         player.current.stop();
       }
       
-      // Create a new player with the current tempo
+      // Create a new player with a default tempo of 120 BPM
+      const defaultTempo = 120;
       player.current = new window.MidiPlayer.Player((event) => {
         if (event.name === 'Note on' && event.velocity > 0) {
           // Calculate actual duration based on tempo to prevent notes from being cut off
-          const duration = event.duration ? (60 / generatedTempo) * event.duration : 3;
+          const duration = event.duration ? (60 / defaultTempo) * event.duration : 3;
           
           soundfont.current.play(event.noteName, audioContext.current.currentTime, { 
             gain: event.velocity / 100,
@@ -269,74 +264,23 @@ function MelodyGenerator() {
       
       // Adjust playback speed - critical for tempo to take effect
       player.current.timeToEvent = function(time) {
-        const msPerTick = (60000 / (generatedTempo * this.division)); 
+        const msPerTick = (60000 / (defaultTempo * this.division)); 
         return Math.round(time / msPerTick);
       };
       
       // Log tempo settings for debugging
-      console.log(`Setting tempo to ${generatedTempo} BPM`);
+      console.log(`Setting tempo to ${defaultTempo} BPM`);
       console.log(`MIDI division: ${player.current.division} ticks per quarter note`);
       
-      // Convert BPM to microseconds per beat (standard MIDI tempo unit)
-      const microsecondsPerBeat = Math.floor(60000000 / generatedTempo);
-      
       // Apply tempo in multiple ways to ensure it takes effect
-      player.current.setTempo(generatedTempo);
+      player.current.setTempo(defaultTempo);
       
       // Custom playback speed control
-      player.current.speed = 1.0; // Reset speed first
+      player.current.setPlaybackSpeed(1.0); // Normal speed
       
-      // Direct MIDI tempo modification - find and modify all tempo events
-      try {
-        const tracks = player.current.getEvents();
-        let tempoEventsFound = 0;
-        
-        // Look through all tracks for tempo events
-        for (let i = 0; i < tracks.length; i++) {
-          const track = tracks[i];
-          if (!Array.isArray(track)) continue;
-          
-          // Find tempo events in this track
-          for (let j = 0; j < track.length; j++) {
-            const event = track[j];
-            if (event.name === 'Set Tempo' || event.type === 0x51) {
-              // Found a tempo event, modify it
-              event.microsecondsPerBeat = microsecondsPerBeat;
-              tempoEventsFound++;
-              console.log(`Modified tempo event #${tempoEventsFound}`);
-            }
-          }
-        }
-        
-        // If no tempo events found, create one
-        if (tempoEventsFound === 0) {
-          console.log("No tempo events found in MIDI, custom tempo handling will be used");
-          
-          // Apply tempo through alternative means
-          if (player.current.tempo) {
-            player.current.tempo = microsecondsPerBeat;
-            console.log("Applied tempo via player.tempo property");
-          }
-          
-          // Override the tick calculation to force tempo
-          const originalGetTick = player.current.getTick.bind(player.current);
-          player.current.getTick = function() {
-            const tick = originalGetTick();
-            return tick;
-          };
-        }
-      } catch (err) {
-        console.log('Error modifying MIDI tempo events:', err);
-      }
-      
-      // When playback ends
-      player.current.on('endOfFile', () => {
-        console.log('Playback ended');
-        setIsPlaying(false);
-      });
     } catch (error) {
       console.error('Error setting up MIDI player:', error);
-      setLoadingError('Failed to set up MIDI player. Please try again.');
+      setLoadingError('Failed to set up audio playback. Please try refreshing the page.');
     }
   };
   
@@ -356,20 +300,23 @@ function MelodyGenerator() {
     // Reset position to the beginning
     player.current.skipToSeconds(0);
     
+    // Use default tempo of 120 BPM for playback
+    const defaultTempo = 120;
+    
     // Debug output to confirm tempo
-    console.log(`Playing at ${generatedTempo} BPM`);
+    console.log(`Playing at ${defaultTempo} BPM`);
     console.log(`MIDI division: ${player.current.division} ticks per quarter note`);
     
     // Convert BPM to microseconds per beat (standard MIDI tempo unit)
-    const microsecondsPerBeat = Math.floor(60000000 / generatedTempo);
+    const microsecondsPerBeat = Math.floor(60000000 / defaultTempo);
     
     // Apply tempo through multiple mechanisms to ensure it takes effect
-    player.current.setTempo(generatedTempo);
+    player.current.setTempo(defaultTempo);
     
     // Custom playback speed calculation
     // Override tick-to-time calculations to force tempo
     player.current.timeToEvent = function(time) {
-      const msPerTick = (60000 / (generatedTempo * this.division)); 
+      const msPerTick = (60000 / (defaultTempo * this.division)); 
       return Math.round(time / msPerTick);
     };
     
@@ -426,7 +373,7 @@ function MelodyGenerator() {
             try {
               // Some implementations let you stop by MIDI number
               soundfont.current.stop(noteNum);
-            } catch (e) {
+            } catch {
               // Ignore errors
             }
           }
@@ -602,7 +549,7 @@ function MelodyGenerator() {
         <div className="p-8">
           <h1 className="text-3xl font-bold text-center text-indigo-800 mb-8">Melody Generator</h1>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <div className="grid grid-cols-1 gap-6 mb-8">
             <div className="space-y-6">
               <div className="space-y-2">
                 <label className="block text-indigo-800 font-medium">Key:</label>
@@ -655,54 +602,7 @@ function MelodyGenerator() {
               </div>
               
               <div className="space-y-2">
-                <label className="block text-indigo-800 font-medium">Time Signature:</label>
-                <select 
-                  value={timeSignature} 
-                  onChange={(e) => setTimeSignature(e.target.value)} 
-                  className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                >
-                  <option value="4/4">4/4 (Common Time)</option>
-                  <option value="3/4">3/4 (Waltz Time)</option>
-                  <option value="2/4">2/4 (March Time)</option>
-                  <option value="6/8">6/8 (Compound Duple)</option>
-                  <option value="9/8">9/8 (Compound Triple)</option>
-                  <option value="5/4">5/4 (Quintuple)</option>
-                  <option value="7/8">7/8 (Septuple)</option>
-                </select>
-              </div>
-              
-              <div className="space-y-2">
-                <label className="block text-indigo-800 font-medium">Tempo (BPM):</label>
-                <div className="flex items-center">
-                  <input 
-                    type="number" 
-                    value={tempo} 
-                    onChange={(e) => setTempo(parseInt(e.target.value))} 
-                    className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    min="40"
-                    max="240"
-                  />
-                  <span className="ml-2 text-gray-500">BPM</span>
-                </div>
-                <div className="flex items-center mt-2">
-                  <span className="text-sm text-gray-500">Slow</span>
-                  <input 
-                    type="range" 
-                    min="40" 
-                    max="240" 
-                    step="1" 
-                    value={tempo} 
-                    onChange={(e) => setTempo(parseInt(e.target.value))} 
-                    className="flex-1 mx-4 h-2 bg-indigo-200 rounded-lg appearance-none cursor-pointer"
-                  />
-                  <span className="text-sm text-gray-500">Fast</span>
-                </div>
-              </div>
-            </div>
-            
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <label className="block text-indigo-800 font-medium">Length (bars):</label>
+                <label className="block text-indigo-800 font-medium">Number of beats:</label>
                 <input 
                   type="number" 
                   value={length} 
@@ -770,8 +670,6 @@ function MelodyGenerator() {
            (key !== generatedKey || 
             scale !== generatedScale || 
             length !== generatedLength || 
-            tempo !== generatedTempo || 
-            timeSignature !== generatedTimeSignature ||
             genre !== generatedGenre ||
             coherence !== generatedCoherence) && (
             <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
@@ -795,7 +693,7 @@ function MelodyGenerator() {
               <div className="mb-4">
                 <h2 className="text-xl text-indigo-800 font-semibold mb-2">Your Melody</h2>
                 <p className="text-indigo-600">
-                  Generated in {generatedKey} {generatedScale} ({generatedLength} bars, {generatedTimeSignature}) at {generatedTempo} BPM 
+                  Generated in {generatedKey} {generatedScale} ({generatedLength} beats)
                   {generatedGenre !== 'none' ? ` in ${generatedGenre} style ` : ' '}
                   with {(generatedCoherence * 100).toFixed(0)}% coherence
                 </p>
