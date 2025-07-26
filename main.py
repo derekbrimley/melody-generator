@@ -33,6 +33,10 @@ app.add_middleware(
 async def root(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "message": "Melody Generator API is running"}
+
 @app.post("/generate-progression/")
 async def generate_progression(
     key: str = "C",

@@ -1,6 +1,6 @@
-fastapi>=0.68.0
-uvicorn>=0.15.0
-pretty_midi>=0.2.9
-mido>=1.2.10
-python-multipart>=0.0.5
-jinja2>=3.0.1 
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pretty_midi==0.2.9
+mido==1.2.10
+python-multipart==0.0.6
+jinja2==3.1.2 
