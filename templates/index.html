@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Melody Generator</title>
+    <!-- Include Tone.js and MidiPlayerJS libraries -->
+    <script src="https://unpkg.com/tone@14.7.77/build/Tone.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/midi-player-js@2.0.16/browser/midiplayer.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/soundfont-player@0.12.0/dist/soundfont-player.min.js"></script>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+            line-height: 1.6;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        select, input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .btn-secondary {
+            background-color: #2196F3;
+        }
+        .btn-secondary:hover {
+            background-color: #0b7dda;
+        }
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 30px;
+        }
+        .player-container {
+            margin-top: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background-color: #f9f9f9;
+            display: none;
+        }
+        .player-controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 15px;
+        }
+        .player-info {
+            text-align: center;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Melody Generator</h1>
+        
+        <div class="form-group">
+            <label for="key">Key:</label>
+            <select id="key" name="key">
+                <option value="C">C</option>
+                <option value="C#">C#</option>
+                <option value="D">D</option>
+                <option value="D#">D#</option>
+                <option value="E">E</option>
+                <option value="F">F</option>
+                <option value="F#">F#</option>
+                <option value="G">G</option>
+                <option value="G#">G#</option>
+                <option value="A">A</option>
+                <option value="A#">A#</option>
+                <option value="B">B</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="scale">Scale:</label>
+            <select id="scale" name="scale">
+                <option value="major">Major</option>
+                <option value="minor">Minor</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="time_signature">Time Signature:</label>
+            <select id="time_signature" name="time_signature">
+                <option value="4/4">4/4 (Common Time)</option>
+                <option value="3/4">3/4 (Waltz Time)</option>
+                <option value="2/4">2/4 (March Time)</option>
+                <option value="6/8">6/8 (Compound Duple)</option>
+                <option value="9/8">9/8 (Compound Triple)</option>
+                <option value="5/4">5/4 (Quintuple)</option>
+                <option value="7/8">7/8 (Septuple)</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="length">Length (bars):</label>
+            <input type="number" id="length" name="length" value="8" min="1" max="32">
+        </div>
+        
+        <div class="controls">
+            <button id="generate-btn" type="button">Generate Melody</button>
+        </div>
+        
+        <div id="player-container" class="player-container">
+            <div class="player-info">
+                <h3 id="melody-info">Melody in C Major (8 bars)</h3>
+            </div>
+            <div class="player-controls">
+                <button id="play-btn" class="btn-secondary">Play</button>
+                <button id="stop-btn" class="btn-secondary">Stop</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentMidiBase64 = '';
+        let player = null;
+        let soundfontPlayer = null;
+        let audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        
+        document.getElementById('generate-btn').addEventListener('click', generateMelody);
+        document.getElementById('play-btn').addEventListener('click', playMelody);
+        document.getElementById('stop-btn').addEventListener('click', stopMelody);
+        
+        // Initialize SoundFont player
+        Soundfont.instrument(audioContext, 'acoustic_grand_piano').then(function(piano) {
+            soundfontPlayer = piano;
+        });
+        
+        function generateMelody() {
+            const key = document.getElementById('key').value;
+            const scale = document.getElementById('scale').value;
+            const length = document.getElementById('length').value;
+            const timeSignature = document.getElementById('time_signature').value;
+            
+            fetch('/generate-melody/?key=' + key + '&scale=' + scale + '&length=' + length + '&time_signature=' + encodeURIComponent(timeSignature), {
+                method: 'POST',
+            })
+            .then(response => response.json())
+            .then(data => {
+                currentMidiBase64 = data.midi_base64;
+                
+                // Update player info
+                document.getElementById('melody-info').textContent = 
+                    `Melody in ${key} ${scale.charAt(0).toUpperCase() + scale.slice(1)} (${length} bars)`;
+                
+                // Show player
+                document.getElementById('player-container').style.display = 'block';
+                
+                // Setup MIDI player
+                setupMidiPlayer(data.midi_base64);
+            })
+            .catch(error => {
+                console.error('Error generating melody:', error);
+            });
+        }
+        
+        function setupMidiPlayer(midiBase64) {
+            // Convert Base64 string to ArrayBuffer
+            const binary = atob(midiBase64);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) {
+                bytes[i] = binary.charCodeAt(i);
+            }
+            
+            // Create Player
+            player = new MidiPlayer.Player(function(event) {
+                if (event.name === 'Note on' && event.velocity > 0) {
+                    soundfontPlayer.play(event.noteName, audioContext.currentTime, { gain: event.velocity / 100 });
+                }
+            });
+            
+            player.loadArrayBuffer(bytes.buffer);
+        }
+        
+        function playMelody() {
+            if (player) {
+                player.stop();
+                player.play();
+            }
+        }
+        
+        function stopMelody() {
+            if (player) {
+                player.stop();
+            }
+        }
+    </script>
+</body>
+</html> 
