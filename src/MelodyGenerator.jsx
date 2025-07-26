@@ -187,8 +187,9 @@ function MelodyGenerator() {
       setGeneratedGenre(genre); // Store the genre used for generation
       
       // Get both the MIDI data and the download URL
+      const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
       const response = await axios.post(
-        'http://localhost:8000/generate-melody/',
+        `${apiBaseUrl}/generate-melody/`,
         null,
         { params: { key, scale, length, coherence, genre } }
       );

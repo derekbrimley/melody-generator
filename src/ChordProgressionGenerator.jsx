@@ -80,7 +80,7 @@ function ChordProgressionGenerator() {
 
       // Call the backend to generate a chord progression
       const response = await axios.post(
-        'http://localhost:8000/generate-progression/',
+        `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/generate-progression/`,
         null,
         { params: { key, scale, num_chords: numChords, genre } }
       );
