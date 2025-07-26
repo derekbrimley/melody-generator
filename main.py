@@ -21,11 +21,25 @@ os.makedirs("templates", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
+# Alternative CORS configuration - uncomment if the wildcard approach doesn't work
+# app.add_middleware(
+#     CORSMiddleware,
+#     allow_origins=[
+#         "http://localhost:5173",
+#         "https://melody-generator-mkugvk5mz-derek-brimleys-projects.vercel.app",
+#         "https://melody-generator-two.vercel.app",
+#         "https://*.vercel.app"
+#     ],
+#     allow_credentials=True,
+#     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+#     allow_headers=["*"],
+# )
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "*"],  # "*" allows all origins for development
-    allow_credentials=True,
-    allow_methods=["*"],
+    allow_origins=["*"],  # Allow all origins
+    allow_credentials=False,  # Must be False when using "*"
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -36,6 +50,10 @@ async def root(request: Request):
 @app.get("/health")
 async def health_check():
     return {"status": "healthy", "message": "Melody Generator API is running"}
+
+@app.options("/{full_path:path}")
+async def preflight_handler(full_path: str):
+    return {"message": "OK"}
 
 @app.post("/generate-progression/")
 async def generate_progression(
