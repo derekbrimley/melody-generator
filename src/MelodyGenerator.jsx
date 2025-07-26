@@ -263,21 +263,17 @@ function MelodyGenerator() {
       // Configure player
       player.current.loadArrayBuffer(bytes.buffer);
       
-      // Adjust playback speed - critical for tempo to take effect
-      player.current.timeToEvent = function(time) {
-        const msPerTick = (60000 / (defaultTempo * this.division)); 
-        return Math.round(time / msPerTick);
-      };
+      // Debug: Log available methods on the player
+      console.log('Available MIDI player methods:', Object.getOwnPropertyNames(player.current));
       
       // Log tempo settings for debugging
       console.log(`Setting tempo to ${defaultTempo} BPM`);
       console.log(`MIDI division: ${player.current.division} ticks per quarter note`);
       
-      // Apply tempo in multiple ways to ensure it takes effect
-      player.current.setTempo(defaultTempo);
-      
-      // Custom playback speed control
-      player.current.setPlaybackSpeed(1.0); // Normal speed
+      // Apply tempo if the method exists
+      if (typeof player.current.setTempo === 'function') {
+        player.current.setTempo(defaultTempo);
+      }
       
     } catch (error) {
       console.error('Error setting up MIDI player:', error);
@@ -308,18 +304,18 @@ function MelodyGenerator() {
     console.log(`Playing at ${defaultTempo} BPM`);
     console.log(`MIDI division: ${player.current.division} ticks per quarter note`);
     
-    // Convert BPM to microseconds per beat (standard MIDI tempo unit)
-    const microsecondsPerBeat = Math.floor(60000000 / defaultTempo);
+    // Apply tempo if the method exists
+    if (typeof player.current.setTempo === 'function') {
+      player.current.setTempo(defaultTempo);
+    }
     
-    // Apply tempo through multiple mechanisms to ensure it takes effect
-    player.current.setTempo(defaultTempo);
-    
-    // Custom playback speed calculation
-    // Override tick-to-time calculations to force tempo
-    player.current.timeToEvent = function(time) {
-      const msPerTick = (60000 / (defaultTempo * this.division)); 
-      return Math.round(time / msPerTick);
-    };
+    // Custom playback speed calculation if the method exists
+    if (typeof player.current.timeToEvent === 'function') {
+      player.current.timeToEvent = function(time) {
+        const msPerTick = (60000 / (defaultTempo * this.division)); 
+        return Math.round(time / msPerTick);
+      };
+    }
     
     // Apply tempo to all tempo events again
     try {
@@ -335,6 +331,7 @@ function MelodyGenerator() {
           const event = track[j];
           if (event.name === 'Set Tempo' || event.type === 0x51) {
             // Found a tempo event, modify it
+            const microsecondsPerBeat = Math.floor(60000000 / defaultTempo);
             event.microsecondsPerBeat = microsecondsPerBeat;
           }
         }
